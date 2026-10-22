@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controle de PO's</title>
+<style>
+/* ===== tema escuro (estilo Notion) ===== */
+:root{
+  --bg:#191919;--panel:#202020;--panel2:#252525;--line:#2e2e2e;--line2:#3d3d3d;
+  --txt:#d4d4d4;--txthi:#efefef;--mut:#8b8b8b;--mut2:#6b6b6b;
+  --green:#2ea36b;--green2:#38b47a;--blue:#6aa6e8;--yellow:#e6b84a;
+  --orange:#e8873c;--red:#e5544b;--purple:#b98ae0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg)}
+body{color:var(--txt);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1140px;margin:0 auto;padding:52px 36px 110px}
+button{font-family:inherit}
+/* topo da página */
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+h1{margin:0 0 6px;font-size:30px;line-height:1.2;color:var(--txthi);letter-spacing:-.02em}
+.sub{margin:0;color:var(--mut);max-width:660px;font-size:13.5px}
+.sync{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--mut);white-space:nowrap}
+.chip b{color:var(--txt);font-weight:600}
+.link-btn{background:none;border:none;color:var(--mut);font-size:12px;cursor:pointer;padding:5px 8px;border-radius:6px}
+.link-btn:hover{background:var(--panel2);color:var(--txt)}
+/* abas */
+.tabs{display:flex;gap:2px;margin:30px 0 26px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--mut);font-size:14px;padding:9px 14px;margin-bottom:-1px;cursor:pointer;border-radius:6px 6px 0 0;transition:.15s}
+.tab:hover{color:var(--txt);background:rgba(32,32,32,.7)}
+.tab.on{color:var(--txthi);border-bottom-color:var(--txthi);font-weight:600}
+.painel{display:none}
+.painel.on{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+/* barra de ferramentas */
+.barra{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.campo{background:var(--panel);border:1px solid var(--line2);color:var(--txt);border-radius:6px;padding:8px 11px;font-size:13px;outline:none;font-family:inherit}
+.campo::placeholder{color:var(--mut2)}
+.campo:focus{border-color:#5a5a5a}
+.busca{min-width:250px;flex:1;max-width:360px}
+select.campo{cursor:pointer}
+.check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--mut);cursor:pointer;user-select:none;white-space:nowrap}
+.check input{accent-color:var(--green);width:14px;height:14px}
+.spacer{flex:1}
+.btn{border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:.15s;white-space:nowrap}
+.btn-ghost{background:transparent;border-color:var(--line2);color:var(--txt)}
+.btn-ghost:hover{background:var(--panel2);border-color:#575757}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green2)}
+.btn-danger{background:#c0392b;color:#fff}
+.btn-danger:hover{background:#d64534}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.statusbar{margin:0 0 14px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);font-size:13px;background:var(--panel)}
+.statusbar.ok{border-color:var(--green2);color:var(--green2)}
+.statusbar.err{border-color:var(--red);color:var(--red)}
+.statusbar.idle{border-color:var(--line2);color:var(--mut)}
+.connfoot{max-width:1140px;margin:0 auto;padding:0 36px 26px;font-size:12px;color:var(--mut);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.conninfo{font-family:Consolas,Menlo,monospace}
+
+/* cards de indicadores */
+.kpis{display:grid;gap:12px;margin-bottom:18px}
+.kpis4{grid-template-columns:repeat(4,1fr)}
+.kpis3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:15px 17px}
+.kpi .rot{font-size:12px;color:var(--mut);margin-bottom:9px}
+.kpi .val{font-size:23px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .obs{font-size:11.5px;color:var(--mut2);margin-top:6px}
+.c-blue{color:var(--blue)}.c-green{color:var(--green2)}.c-yellow{color:var(--yellow)}
+.c-orange{color:var(--orange)}.c-red{color:var(--red)}.c-purple{color:var(--purple)}
+
+/* tabelas */
+.moldura{border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:auto;max-height:540px}
+.moldura.sem-max{max-height:none}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{position:sticky;top:0;background:#242424;color:var(--mut);font-weight:500;font-size:12px;text-align:left;padding:9px 10px;line-height:1.3;border-bottom:1px solid var(--line);white-space:normal;z-index:2}
+tbody td{padding:8px 10px;border-bottom:1px solid #292929;white-space:nowrap;color:#cfcfcf}
+.cel-serv{white-space:normal;min-width:110px;max-width:190px}
+
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#262626}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;border:1px solid var(--line2);background:#2a2a2a;border-radius:4px;padding:1px 8px;font-size:11.5px;color:#bdbdbd}
+.tag.nula{color:var(--orange);border-color:#5a3d24;background:#2c211a}
+.vazio{padding:32px 16px;text-align:center;color:var(--mut);font-size:13px}
+.linkable{color:var(--mut);background:none;border:none;cursor:pointer;font-size:12.5px;text-decoration:underline;text-underline-offset:2px}
+.linkable:hover{color:var(--red)}
+/* blocos da aba Projetos */
+.secao{margin-bottom:18px}
+.secao h3{margin:0 0 6px;font-size:15px;color:var(--txthi)}
+.secao p{margin:0 0 14px;font-size:13px;color:var(--mut);max-width:780px}
+.form-row{display:flex;gap:10px;flex-wrap:wrap}
+.form-row .campo{flex:1;min-width:200px}
+.risco{border-color:#5d2a24;background:#231a19}
+.risco h3{color:var(--red)}
+.risco .zona{color:var(--orange);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.risco p{color:#c9a09b}
+.risco p b{color:#e8b4ae}
+.risco-campo{display:flex;gap:10px;flex-wrap:wrap}
+.risco-campo .campo{flex:1;min-width:220px;background:#1d1615}
+/* aba Dashboard */
+.painel-topo{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.compet{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.linha-cab,.linha{display:grid;grid-template-columns:190px 1fr 130px 130px 130px;gap:14px;align-items:center;padding:11px 16px}
+.linha-cab{background:#242424;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--mut)}
+.linha{border-bottom:1px solid #292929}
+.linha:last-child{border-bottom:none}
+.linha .nome{font-size:13px;color:var(--txt)}
+.barra-fundo{height:12px;border-radius:6px;background:#2b2b2b;display:flex;overflow:hidden}
+.seg{height:100%}
+.seg-pago{background:linear-gradient(90deg,#2ea36b,#45c98c)}
+.seg-pend{background:linear-gradient(90deg,#d9a73c,#f0c65c)}
+.seg-atraso{background:linear-gradient(90deg,#c94a41,#e5655a)}
+.mini{font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;color:#cfcfcf}
+.legenda{margin:12px 0 0;font-size:11.5px;color:var(--mut2);line-height:1.8}
+.legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+/* aviso flutuante */
+#toast{position:fixed;right:22px;bottom:22px;background:#262626;border:1px solid var(--line2);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--txt);box-shadow:0 10px 30px rgba(0,0,0,.55);opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;max-width:340px;z-index:50}
+#toast.on{opacity:1;transform:none}
+/* modal de edicao da PO (duplo clique) */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+.overlay[hidden]{display:none}
+.modal{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:22px 24px;width:460px;max-width:94vw;box-shadow:0 18px 50px rgba(0,0,0,.6);animation:fade .18s ease}
+.modal h3{margin:0 0 4px;font-size:17px;color:var(--txthi)}
+.mpo-sub{margin:0 0 16px;font-size:12.5px;color:var(--mut)}
+.mpo-sub b{color:var(--txt)}
+.mpo-label{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px}
+.mpo-input{width:100%}
+.mpo-dica{font-size:11.5px;color:var(--mut2);margin-top:5px}
+.mpo-acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:22px}
+.mpo-opcao{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;color:var(--txt);cursor:pointer}
+.mpo-opcao input{accent-color:var(--green);width:14px;height:14px}
+.mpo-datas{display:flex;gap:8px;margin-top:6px}
+.mpo-datas .campo{flex:1}
+#tbodyPOs tr{cursor:pointer}
+/* telas menores */
+@media(max-width:960px){
+  .kpis4{grid-template-columns:repeat(2,1fr)}
+  .kpis3{grid-template-columns:1fr}
+  .linha-cab,.linha{grid-template-columns:1fr;gap:8px}
+  .linha-cab{display:none}
+  .mini{text-align:left}
+}
+@media(max-width:640px){
+  .wrap{padding:32px 16px 80px}
+  .kpis4{grid-template-columns:1fr}
+  .top{flex-direction:column}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Controle de PO's</h1>
+      <p class="sub">Pagamentos de serviços prestados pela Hitss — dados importados do SAP, com status de pagamento, competência e vínculo ao projeto.</p>
+    </div>
+    <div class="sync">
+      <span class="chip">sincronizado: <b id="qtdPOs">0</b> POs, <b id="qtdProjetos">0</b> projeto(s)</span>
+      <button class="link-btn" id="btnAtualizar" type="button">Atualizar agora</button>
+      <button class="link-btn" id="btnRestaurar" type="button" style="display:none">restaurar exemplo</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab on" type="button" data-aba="pos" role="tab" aria-selected="true">POs</button>
+    <button class="tab" type="button" data-aba="projetos" role="tab" aria-selected="false">Projetos</button>
+    <button class="tab" type="button" data-aba="dashboard" role="tab" aria-selected="false">Dashboard</button>
+  </div>
+
+  <!-- ================= ABA 1: POs ================= -->
+  <section class="painel on" id="aba-pos">
+    <div class="barra">
+      <input class="campo busca" id="busca" type="search" placeholder="Buscar documento, item, serviço...">
+      <select class="campo" id="selComp"><option value="todas">Todas as competências</option></select>
+      <select class="campo" id="selMes2026"><option value="01/2026">Janeiro 2026</option><option value="02/2026">Fevereiro 2026</option><option value="03/2026">Março 2026</option><option value="04/2026">Abril 2026</option><option value="05/2026">Maio 2026</option><option value="06/2026">Junho 2026</option><option value="07/2026">Julho 2026</option><option value="08/2026">Agosto 2026</option><option value="09/2026">Setembro 2026</option><option value="10/2026">Outubro 2026</option><option value="11/2026">Novembro 2026</option><option value="12/2026">Dezembro 2026</option></select>
+      <label class="check"><input type="checkbox" id="chkSaldo"> só com saldo a faturar</label>
+      <span class="spacer"></span>
+      <input type="file" id="fileInput" accept=".csv,.xlsx" style="display:none">
+      <button class="btn btn-ghost" id="btnExportar" type="button">Exportar CSV</button>
+      <button class="btn btn-green" id="btnSAP" type="button">Importar dados do SAP</button>
+    </div>
+
+    <div id="statusImport" class="statusbar idle"></div>
+
+    <div class="kpis kpis3">
+      <div class="card kpi"><div class="rot">PO's cadastradas</div><div class="val c-blue" id="k1">0</div><div class="obs">documentos de compra no banco</div></div>
+      <div class="card kpi"><div class="rot">Valor total (preço líquido)</div><div class="val c-green" id="k2">R$ 0,00</div><div class="obs">soma do preço líquido</div></div>
+      <div class="card kpi"><div class="rot">Ainda a faturar</div><div class="val c-orange" id="k3">R$ 0,00</div><div class="obs">saldo ainda a faturar</div></div>
+      <div class="card kpi"><div class="rot">Sem competência definida</div><div class="val c-purple" id="k4">0</div><div class="obs">POs sem mês de referência</div></div>
+    </div>
+
+    <div class="moldura">
+      <table>
+        <thead>
+          <tr>
+            <th>Documento de compras</th><th>Item</th><th>Contrato básico</th><th>Data do documento</th>
+            <th class="num">Preço líquido</th><th class="num">A ser fornecido</th><th class="num">Ainda a faturar</th>
+            <th>Nome do serviço</th><th>Competência do pagamento</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyPOs"></tbody>
+      </table>
+      <div class="vazio" id="vazioPOs" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- ================= ABA 2: Projetos ================= -->
+  <section class="painel" id="aba-projetos">
+    <div class="card secao">
+      <h3>Novo projeto</h3>
+      <p>Cada projeto é vinculado a um Contrato balcão do SAP. As POs importadas com esse contrato básico são associadas automaticamente ao projeto.</p>
+      <div class="form-row">
+        <input class="campo" id="inpProjNome" type="text" placeholder="Nome do projeto">
+        <input class="campo" id="inpProjContrato" type="text" placeholder="Contrato básico SAP">
+        <button class="btn btn-green" id="btnAddProj" type="button">Adicionar projeto</button>
+      </div>
+    </div>
+
+    <div class="moldura sem-max secao">
+      <table>
+        <thead>
+          <tr><th>Nome do projeto</th><th>Contrato básico</th><th class="num">POs vinculadas</th><th></th></tr>
+        </thead>
+        <tbody id="tbodyProjetos"></tbody>
+      </table>
+      <div class="vazio" id="vazioProjetos" style="display:none">Nenhum projeto cadastrado.</div>
+    </div>
+
+    <div class="card secao risco">
+      <div class="zona">Zona de risco</div>
+      <p>Remove permanentemente <b>TODAS</b> as POs, <b>TODOS</b> os projetos e <b>TODO</b> o histórico de arquivos importados deste arquivo — para todo mundo com acesso ao link. Não pode ser desfeito. Para confirmar, digite <b>CONFERIR</b> acesso.</p>
+      <div class="risco-campo">
+        <input class="campo" id="inpRisco" type="text" placeholder="Digite CONFERIR acesso" autocomplete="off">
+        <button class="btn btn-danger" id="btnLimpar" type="button" disabled>Limpar tudo e armazenar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ABA 3: Dashboard ================= -->
+  <section class="painel" id="aba-dashboard">
+    <div class="painel-topo">
+      <select class="campo" id="selProjeto"><option value="todos">Todos os projetos</option></select>
+      <span class="chip">mês vigente: <b id="mesVigenteChip">10/2026</b></span>
+    </div>
+
+    <div class="kpis kpis3">
+      <div class="card kpi"><div class="rot">Pago</div><div class="val c-green" id="dPago">R$ 0,00</div><div class="obs" id="dPagoObs">0 POs</div></div>
+      <div class="card kpi"><div class="rot">Pendente (futuro vigente)</div><div class="val c-yellow" id="dPend">R$ 0,00</div><div class="obs" id="dPendObs">0 POs</div></div>
+      <div class="card kpi"><div class="rot">Atrasado</div><div class="val c-red" id="dAtr">R$ 0,00</div><div class="obs" id="dAtrObs">0 POs</div></div>
+    </div>
+
+    <div class="compet">
+      <div class="linha-cab">
+        <span>Competência</span><span></span>
+        <span class="mini">Pago</span><span class="mini">Pendente</span><span class="mini">Atrasado</span>
+      </div>
+      <div id="dashLinhas"></div>
+    </div>
+
+    <p class="legenda">
+      <i class="seg-pago"></i><b>Pago</b> = valor já liquidado/faturado.
+      <i class="seg-pend"></i><b>Pendente</b> = saldo a faturar com competência futura (após o mês vigente).
+      <i class="seg-atraso"></i><b>Atrasado</b> = saldo a faturar com competência no mês vigente, anterior ou sem competência definida.
+      A barra mostra a proporção de cada status dentro da linha.
+    </p>
+  </section>
+
+</div>
+<div class="connfoot">
+  <span>Destino:</span>
+  <span id="connInfo" class="conninfo">conectando...</span>
+  <button class="link-btn" id="btnVerificar" type="button">Verificar conexão</button>
+</div>
+<!-- modal: editar nome do servico / competencia range (duplo clique na PO) -->
+<div class="overlay" id="modalPO" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mpoTitulo">
+    <h3 id="mpoTitulo">Editar PO</h3>
+    <p class="mpo-sub">Documento <b id="mpoDoc"></b> · Item <b id="mpoItem"></b> · Contrato <b id="mpoContrato"></b></p>
+    <div class="mpo-sugestao" id="mpoSugestao" style="margin:8px 0;padding:6px 10px;background:var(--panel2);border:1px dashed var(--line2);border-radius:6px;font-size:12px;color:var(--mut2);display:none;">
+      <strong>Sugestão do projeto:</strong> <span id="mpoSugestaoValor"></span>
+    </div>
+
+    <label class="mpo-label" for="mpoProjeto">Contrato do projeto</label>
+    <select class="campo" id="mpoProjeto">
+      <option value="">-- sem projeto (vazio) --</option>
+    </select>
+
+    <label class="mpo-label">Competência</label>
+    <div class="mpo-opcao">
+      <input type="radio" name="mpoTipoComp" id="mpoTipoMes" value="mes" checked>
+      <label for="mpoTipoMes">Competência mensal (MM/AAAA)</label>
+    </div>
+    <div class="mpo-datas">
+      <input class="campo" id="mpoMes" type="text" placeholder="MM/AAAA" maxlength="7">
+    </div>
+    <div class="mpo-opcao">
+      <input type="radio" name="mpoTipoComp" id="mpoTipoPeriodo" value="periodo">
+      <label for="mpoTipoPeriodo">Período personalizado (início e fim)</label>
+    </div>
+    <div class="mpo-datas" id="mpoPeriodoCampos">
+      <input class="campo" id="mpoDataInicio" type="date">
+      <input class="campo" id="mpoDataFim" type="date">
+    </div>
+    <p class="mpo-dica">O texto será salvo no banco como "início a fim" (ex.: 01/10/2026 a 31/10/2026). Deixe tudo em branco para limpar.</p>
+    <div class="mpo-acoes">
+      <button class="btn btn-ghost" id="btnMpoCancelar" type="button">Cancelar</button>
+      <button class="btn btn-green" id="btnMpoSalvar" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+
+let MES_VIGENTE = {ano: 2026, mes: 10}; // valor padrao; atualizado pelo servidor via /api/info
+let arquivoAtual = null; // nome do arquivo mais recente (origem) a ser exibido na tabela e dashboard
+
+
+/* gerador pseudoaleatório com seed fixa (repete sempre os mesmos dados) */
+/* ===== dados: carregados do banco via servidor local ===== */
+let estado = { pos: [], projetos: [] };
+
+function escapeHtml(texto){
+  if (!texto) return '';
+  const div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+async function carregarProjetos(){
+  try {
+    const r = await fetch("/api/projetos");
+    const j = await r.json();
+    if (j && j.ok) {
+      estado.projetos = (j.projetos || []).map(p => ({
+        nome: p.nome || "",
+        contrato: p.contrato || ""
+      }));
+      const sel = $('#mpoProjeto');
+      if (sel) {
+        // Exibe apenas o CONTRATO (identificador univoco do projeto);
+        // o nome do projeto fica no title (tooltip) do mouse.
+        sel.innerHTML = '<option value="">-- selecione um projeto --</option>' +
+          estado.projetos.map(p => '<option value="' + escapeHtml(p.contrato) + '" title="' +
+              escapeHtml(p.nome) + '">' + escapeHtml(p.contrato) + '</option>').join('');
+      }
+    }
+  } catch(e){
+    console.log('Falha ao carregar projetos: ' + e);
+  }
+}
+
+async function carregarDoBanco(){
+  try {
+    // Descobre o arquivo mais recente importado (ordenado por data de importacao desc)
+    arquivoAtual = null;
+    const rArq = await fetch("/api/arquivos");
+    const jArq = await rArq.json();
+    if (jArq.ok && jArq.arquivos && jArq.arquivos.length > 0) {
+      arquivoAtual = jArq.arquivos[0].arquivo; // mais recente primeiro
+    }
+
+    const url = arquivoAtual
+      ? "/api/pos?origem=" + encodeURIComponent(arquivoAtual)
+      : "/api/pos";
+
+    const r = await fetch(url);
+    const j = await r.json();
+    if (j && j.ok){
+      estado.pos = j.pos || [];
+      renderTudo();
+    } else {
+      toast("Nao foi possivel carregar os dados: " + ((j && j.error) || "erro desconhecido"));
+    }
+  } catch(e){
+    toast("Falha ao conectar ao servidor local. Rode 'python server.py'. (" + e + ")");
+  }
+}
+
+function exportarCSV(){
+  // Abre o seletor de arquivos (obrigatorio escolher um .csv ou .xlsx)
+  $("#fileInput").value = "";
+  $("#fileInput").click();
+}
+
+async function importarDoSAP(){
+  // Importa automaticamente o .xlsx mais recente da pasta (modo automatico do servidor)
+  setStatus("Importando automaticamente o .xlsx mais recente...", "idle");
+  const btn = $("#btnSAP");
+  const rotuloAntigo = btn.textContent;
+  btn.disabled = true; btn.textContent = "Importando...";
+  try {
+    const resp = await fetch("/api/import", { method: "POST" });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || "Falha ao importar");
+    estado.pos = j.pos || [];
+    toast(`Importado ${j.inserted} PO(s) de "${j.file}".`);
+    setStatus(`Importado ${j.inserted} PO(s) de "${j.file}" em ${new Date().toLocaleTimeString()}.`, "ok");
+    carregarDoBanco(); // recarrega filtrado pelo arquivo recem importado
+    carregarInfo();
+  } catch(e){
+    toast("Falha ao importar: " + e.message);
+    setStatus("Falha ao importar: " + e.message, "err");
+  } finally {
+    btn.disabled = false; btn.textContent = rotuloAntigo;
+  }
+}
+
+function enviarArquivo(file){
+  const btn = $("#btnExportar");
+  const rotuloAntigo = btn.textContent;
+  btn.disabled = true; btn.textContent = "Importando...";
+  setStatus(`Lendo "${file.name}" e enviando ao servidor...`, "idle");
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const base64 = String(reader.result).split(",")[1] || "";
+      const r = await fetch("/api/import", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename: file.name, data_base64: base64})
+      });
+      const j = await r.json();
+      if (j && j.ok){
+        estado.pos = j.pos || [];
+        toast(`Importados ${j.inserted||0} itens de "${j.file||""}". Total no banco: ${j.count||0}.`);
+        setStatus(`Importado ${j.inserted||0} item(ns) de "${j.file||""}" em ${new Date().toLocaleTimeString()}. Total no banco: ${j.count||0}.`, "ok");
+        carregarDoBanco(); // recarrega filtrado pelo arquivo recem importado
+        carregarInfo();
+      } else {
+        toast("Falha na importacao: " + ((j && j.error) || "erro desconhecido"));
+        setStatus("Falha na importacao: " + ((j && j.error) || "erro desconhecido"), "err");
+      }
+    } catch(e){
+      toast("Falha na importacao: " + e);
+      setStatus("Falha na importacao: " + e, "err");
+    } finally {
+      btn.disabled = false; btn.textContent = rotuloAntigo;
+    }
+  };
+  reader.onerror = () => {
+    btn.disabled = false; btn.textContent = rotuloAntigo;
+    toast("Não consegui ler o arquivo.");
+    setStatus("Falha na importacao: nao foi possivel ler o arquivo.", "err");
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ===== utilidades ===== */
+const fmtMoeda = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+const fmtNum   = new Intl.NumberFormat('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtBRL = c => fmtMoeda.format(c/100);
+const fmtN   = c => fmtNum.format(c/100);
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+const rotulo = p => (p.competencia && p.competencia !== '-') ? p.competencia : 'sem competência';
+
+function ehFutura(comp){
+  const m = /(\d{2})\/(\d{4})/.exec(comp || '');
+  if (!m) return false;
+  const ano = Number(m[2]), mes = Number(m[1]);
+  return ano*12 + mes > MES_VIGENTE.ano*12 + MES_VIGENTE.mes;
+}
+function pesoComp(rot){
+  const m = /(\d{2})\/(\d{4})/.exec(rot || '');
+  return m ? Number(m[2])*12 + Number(m[1]) : 0;
+}
+
+/* extrai MM/AAAA da coluna data_documento.
+   O banco guarda a data como TEXT no formato ISO (AAAA-MM-DD);
+   aceita tambem DD/MM/AAAA caso o servidor ja devolva formatado. */
+function mesAnoDaData(data){
+  if (!data) return null;
+  const s = String(data).trim();
+  // AAAA-MM-DD (formato real gravado no banco, coluna TEXT)
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return m[2] + '/' + m[1];
+  // DD/MM/AAAA (formato exibido na tela)
+  m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(s);
+  if (m) return m[2] + '/' + m[3];
+  return null;
+}
+
+/* ===== renderização: aba POs ===== */
+function filtrarPOs(){
+  const q = $('#busca').value.trim().toLowerCase();
+  const comp = $('#selComp').value;
+  const mes = $('#selMes2026').value;
+  const soSaldo = $('#chkSaldo').checked;
+  return estado.pos.filter(p => {
+    if (comp !== 'todas' && rotulo(p) !== comp) return false;
+    // o filtro de mês é sempre ativo (não existe mais a opção "todos"):
+    // se o select for recriado/resetado, o valor legado 'todos' é ignorado
+    // para que o mês selecionado (padrão: Janeiro/2026) seja respeitado.
+    if (mes && mes !== 'todos') {
+      const mesAno = mesAnoDaData(p.data);
+      if (!mesAno || mesAno !== mes) return false;
+    }
+    if (soSaldo && (p.aindaAFaturar + p.aSerFornecido) <= 0) return false;
+    if (q){
+      const alvo = (p.doc + ' ' + p.item + ' ' + p.contrato + ' ' + p.nomeServico + ' ' + (p.projeto || '') + ' ' + rotulo(p)).toLowerCase();
+      if (alvo.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function renderPOs(){
+  const lista = filtrarPOs();
+  const somaTotal = lista.reduce((s,p)=>s+p.preco, 0);
+  const somaFat   = lista.reduce((s,p)=>s+p.aindaAFaturar, 0);
+  const semComp   = lista.filter(p=>!p.competencia || p.competencia==='-').length;
+
+  $('#k1').textContent = lista.length;
+  $('#k2').textContent = fmtBRL(somaTotal);
+  $('#k3').textContent = fmtBRL(somaFat);
+  $('#k4').textContent = semComp;
+
+  $('#tbodyPOs').innerHTML = lista.map(p => '<tr data-doc="' + esc(p.doc) + '" data-item="' + esc(p.item) + '" data-contrato="' + esc(p.contrato) + '" title="Duplo clique para editar serviço/competência">' +
+    '<td>' + esc(p.doc) + '</td>' +
+    '<td class="num">' + esc(p.item) + '</td>' +
+    '<td>' + esc(p.contrato) + '</td>' +
+    '<td>' + esc(p.data) + '</td>' +
+    '<td class="num">' + fmtN(p.preco) + '</td>' +
+    '<td class="num">' + fmtN(p.aSerFornecido) + '</td>' +
+    '<td class="num">' + fmtN(p.aindaAFaturar) + '</td>' +
+    '<td class="cel-serv">' + esc(p.nomeServico) + '</td>' +
+    '<td><span class="tag' + ((p.competencia && p.competencia!=='-') ? '' : ' nula') + '">' + esc(rotulo(p)) + '</span></td>' +
+    '</tr>').join('');
+
+  const vazio = $('#vazioPOs');
+  if (lista.length){
+    vazio.style.display = 'none';
+  } else {
+    vazio.style.display = 'block';
+    vazio.textContent = estado.pos.length
+      ? 'Nenhuma PO encontrada para os filtros atuais.'
+      : 'Nenhuma PO no arquivo. Use "restaurar exemplo" no topo da página para recarregar os dados ilustrativos.';
+  }
+}
+
+/* ===== renderização: aba Projetos ===== */
+
+// Extrai o nome do projeto a partir do nome do serviço gravado.
+// Aceita o formato antigo ("Centro Tático") e o novo ("Centro Tático (5700023196)").
+function _nomeProjetoDe(nomeServico){
+  const s = String(nomeServico || '').trim();
+  if (!s || s === '-') return '';
+  const m = /\s*\(([^()]+)\)\s*$/.exec(s);
+  return m ? s.slice(0, m.index).trim() : s;
+}
+
+function renderProjetos(){
+  const base = estado.pos;
+  $('#tbodyProjetos').innerHTML = estado.projetos.map(pr => {
+    const n = base.filter(p =>
+      p.contrato === pr.contrato && _nomeProjetoDe(p.nomeServico) === pr.nome
+    ).length;
+    return '<tr>' +
+      '<td>' + escapeHtml(pr.nome) + '</td>' +
+      '<td>' + escapeHtml(pr.contrato) + '</td>' +
+      '<td class="num">' + n + '</td>' +
+      '<td class="num"><button class="linkable" type="button" data-remover="' + escapeHtml(pr.contrato) + '" data-nome="' + escapeHtml(pr.nome) + '">remover</button></td>' +
+      '</tr>';
+  }).join('');
+  $('#vazioProjetos').style.display = estado.projetos.length ? 'none' : 'block';
+}
+
+function renderTopo(){
+  const base = estado.pos;
+  $('#qtdPOs').textContent = base.length;
+  $('#qtdProjetos').textContent = estado.projetos.length;
+  $('#btnRestaurar').style.display = estado.pos.length ? 'none' : 'inline-block';
+}
+
+/* preenche os dois <select> preservando a seleção atual */
+function montarSelects(){
+  const compAtual = $('#selComp').value;
+  const comps = Array.from(new Set(estado.pos.map(rotulo)));
+  comps.sort((a,b) => pesoComp(a) - pesoComp(b));
+  $('#selComp').innerHTML = '<option value="todas">Todas as competências</option>' +
+    comps.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+  $('#selComp').value = comps.indexOf(compAtual) !== -1 ? compAtual : 'todas';
+
+  const projAtual = $('#selProjeto').value;
+  $('#selProjeto').innerHTML = '<option value="todos">Todos os projetos</option>' +
+    estado.projetos.map(p => '<option value="' + p.contrato + '">' + p.nome + '</option>').join('');
+  $('#selProjeto').value = estado.projetos.some(p => p.contrato === projAtual) ? projAtual : 'todos';
+}
+
+/* ===== renderização: aba Dashboard ===== */
+function renderDashboard(){
+  const sel = $('#selProjeto').value;
+  const base = estado.pos;
+  const lista = sel === 'todos'
+    ? base
+    : base.filter(p => p.contrato === sel);
+
+  const tot = {pago:0, pend:0, atr:0};
+  const cnt = {pago:0, pend:0, atr:0};
+  const grupos = new Map();
+
+  lista.forEach(p => {
+    const saldo = p.aindaAFaturar + p.aSerFornecido;
+    const pend = ehFutura(p.competencia) ? saldo : 0;
+    const atr = saldo - pend;
+    const pago = p.preco - saldo;
+    if (pago > 0){ tot.pago += pago; cnt.pago++; }
+    if (pend > 0){ tot.pend += pend; cnt.pend++; }
+    if (atr > 0){ tot.atr += atr; cnt.atr++; }
+    const g = rotulo(p);
+    if (!grupos.has(g)) grupos.set(g, {pago:0, pend:0, atr:0});
+    const o = grupos.get(g);
+    o.pago += pago; o.pend += pend; o.atr += atr;
+  });
+
+  $('#dPago').textContent = fmtBRL(tot.pago);
+  $('#dPend').textContent = fmtBRL(tot.pend);
+  $('#dAtr').textContent  = fmtBRL(tot.atr);
+  $('#dPagoObs').textContent = cnt.pago + ' POs';
+  $('#dPendObs').textContent = cnt.pend + ' POs';
+  $('#dAtrObs').textContent  = cnt.atr + ' POs';
+
+  const chaves = Array.from(grupos.keys()).sort((a,b) => pesoComp(a) - pesoComp(b));
+  const linhas = chaves.map(nome => {
+    const g = grupos.get(nome);
+    const tp = g.pago + g.pend + g.atr;
+    const pct = v => tp > 0 ? (v * 100 / tp) : 0;
+    return '<div class="linha">' +
+      '<span class="nome">' + nome + '</span>' +
+      '<span class="barra-fundo">' +
+        '<span class="seg seg-pago" style="width:' + pct(g.pago) + '%"></span>' +
+        '<span class="seg seg-pend" style="width:' + pct(g.pend) + '%"></span>' +
+        '<span class="seg seg-atraso" style="width:' + pct(g.atr) + '%"></span>' +
+      '</span>' +
+      '<span class="mini">' + fmtBRL(g.pago) + '</span>' +
+      '<span class="mini">' + fmtBRL(g.pend) + '</span>' +
+      '<span class="mini">' + fmtBRL(g.atr) + '</span>' +
+      '</div>';
+  }).join('');
+  $('#dashLinhas').innerHTML = linhas || '<div class="vazio">Sem dados para exibir.</div>';
+}
+
+function renderTudo(){
+  montarSelects();
+  renderTopo();
+  renderPOs();
+  renderProjetos();
+  renderDashboard();
+}
+
+/* ===== avisos ===== */
+let toastTimer = null;
+function toast(msg){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 3200);
+}
+
+
+/* ===== status persistente + info de conexao ===== */
+function setStatus(msg, tipo){
+  const el = $('#statusImport');
+  if (!el) return;
+  el.className = 'statusbar ' + (tipo || 'idle');
+  el.textContent = msg;
+}
+
+async function carregarInfo(){
+  const el = $('#connInfo');
+  try {
+    const r = await fetch('/api/info');
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'falha');
+    const dest = `${j.host}:${j.port}/${j.database}  |  ${j.schema}.${j.table}  |  ${j.count} linha(s)`;
+    if (el) el.textContent = dest;
+    const chip = $('#qtdPOs'); if (chip) chip.textContent = j.count;
+
+    // atualiza o mes vigente dinamicamente a partir do ultimo mes com dados no banco
+    if (j.mes_vigente) {
+      const m = /^(\d{2})\/(\d{4})$/.exec(String(j.mes_vigente));
+      if (m) {
+        MES_VIGENTE = {ano: Number(m[2]), mes: Number(m[1])};
+        const chipMes = $('#mesVigenteChip');
+        if (chipMes) chipMes.textContent = j.mes_vigente;
+      }
+    }
+    // recalcula o dashboard com o novo mes vigente
+    renderTudo();
+  } catch(e){
+    if (el) el.textContent = 'nao foi possivel consultar: ' + e.message;
+  }
+}
+
+/* ===== eventos ===== */
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => {
+      const ativo = b === btn;
+      b.classList.toggle('on', ativo);
+      b.setAttribute('aria-selected', ativo ? 'true' : 'false');
+    });
+    document.querySelectorAll('.painel').forEach(sec => {
+      sec.classList.toggle('on', sec.id === 'aba-' + btn.dataset.aba);
+    });
+  });
+});
+
+['input','change'].forEach(ev => {
+  $('#busca').addEventListener(ev, renderPOs);
+  $('#selComp').addEventListener(ev, renderPOs);
+  $('#selMes2026').addEventListener(ev, renderPOs);
+  $('#chkSaldo').addEventListener(ev, renderPOs);
+});
+
+$('#fileInput').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  if (file) enviarArquivo(file);
+});
+$('#btnExportar').addEventListener('click', exportarCSV);
+$('#btnSAP').addEventListener('click', importarDoSAP);
+$('#btnVerificar').addEventListener('click', () => { carregarInfo(); toast('Verificando conexão...'); });
+
+$('#btnAtualizar').addEventListener('click', () => {
+  carregarDoBanco();
+  toast('Recarregando dados do banco...');
+});
+
+$('#btnRestaurar').addEventListener('click', () => {
+  carregarDoBanco();
+  toast('Recarregando dados do banco...');
+});
+
+$('#btnAddProj').addEventListener('click', async () => {
+  const nome = $('#inpProjNome').value.trim();
+  const contrato = $('#inpProjContrato').value.trim();
+  if (!nome || !contrato){ toast('Preencha o nome do projeto e o contrato básico SAP.'); return; }
+  if (estado.projetos.some(p => p.contrato === contrato)){ toast('Já existe um projeto com esse contrato.'); return; }
+  try {
+    const r = await fetch('/api/projetos', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({nome: nome, contrato: contrato})
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Falha ao adicionar projeto');
+    estado.projetos.push({nome: nome, contrato: contrato});
+    $('#inpProjNome').value = '';
+    $('#inpProjContrato').value = '';
+    renderTopo(); renderProjetos(); montarSelects(); renderDashboard();
+    toast('Projeto "' + nome + '" adicionado.');
+  } catch(e){
+    toast('Falha ao adicionar projeto: ' + e.message);
+  }
+});
+
+$('#tbodyProjetos').addEventListener('click', async e => {
+  const alvo = e.target.closest('[data-remover]');
+  if (!alvo) return;
+  const contrato = alvo.dataset.remover;
+  const nome = alvo.dataset.nome || '';
+  try {
+    const r = await fetch('/api/projetos', {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({nome: nome, contrato: contrato})
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Falha ao remover projeto');
+    estado.projetos = estado.projetos.filter(p => p.contrato !== contrato);
+    renderTopo(); renderProjetos(); montarSelects(); renderDashboard();
+    toast('Projeto removido (as POs do contrato foram mantidas).');
+  } catch(e){
+    toast('Falha ao remover projeto: ' + e.message);
+  }
+});
+
+$('#inpRisco').addEventListener('input', e => {
+  $('#btnLimpar').disabled = e.target.value.trim() !== 'CONFERIR';
+});
+
+$('#btnLimpar').addEventListener('click', async () => {
+  try {
+    await fetch('/api/clear', {method:'POST'});
+    estado.pos = [];
+    estado.projetos = [];
+    $('#inpRisco').value = '';
+    $('#btnLimpar').disabled = true;
+    renderTudo();
+    toast('Todas as POs e projetos foram removidos do banco.');
+  } catch(e){
+    toast('Falha ao limpar: ' + e);
+  }
+});
+
+$('#selProjeto').addEventListener('change', renderDashboard);
+
+/* ===== modal de edicao da PO (duplo clique) ===== */
+let mpoAlvo = null;
+
+function _parseCompetenciaRange(texto){
+  // espera "DD/MM/AAAA a DD/MM/AAAA" ou similar
+  if (!texto || texto === '-') return {ini: '', fim: ''};
+  const partes = texto.split(' a ');
+  if (partes.length === 2) return {ini: partes[0].trim(), fim: partes[1].trim()};
+  return {ini: '', fim: ''};
+}
+
+function _ultimoDia(ano, mes){
+  return new Date(ano, mes, 0).getDate();
+}
+
+function abrirModalPO(po){
+  mpoAlvo = po;
+  $('#mpoDoc').textContent = po.doc;
+  $('#mpoItem').textContent = po.item;
+  $('#mpoContrato').textContent = po.contrato;
+
+  // sugestao de projeto vinda do banco (via contrato_basico)
+  const sugestao = $('#mpoSugestao');
+  const sugestaoValor = $('#mpoSugestaoValor');
+  const selProjeto = $('#mpoProjeto');
+
+  // contrato ja gravado em nome_do_servico, no formato "Nome do projeto (Contrato)"
+  const salvo = String(po.nomeServico || '');
+  const mSalvo = /\(([^()]+)\)\s*$/.exec(salvo);
+  const contratoSalvo = mSalvo ? mSalvo[1] : '';
+
+  if (po.projeto && po.projeto !== '') {
+    sugestaoValor.textContent = po.projeto;
+    sugestao.style.display = 'block';
+    // ja deixa a opcao selecionada no dropdown (o value da option e o contrato)
+    if (selProjeto) selProjeto.value = po.contrato;
+  } else {
+    sugestao.style.display = 'none';
+    sugestaoValor.textContent = '';
+    // sem projeto vinculado: mantem o contrato ja salvo, se existir
+    if (selProjeto) selProjeto.value = contratoSalvo || '';
+  }
+
+  const range = _parseCompetenciaRange(po.competencia);
+  const tipoMes = $('#mpoTipoMes');
+  const tipoPeriodo = $('#mpoTipoPeriodo');
+  const divMes = $('#mpoMes').parentElement;
+  const divPeriodo = $('#mpoPeriodoCampos');
+
+  // tenta detectar se ja era um range completo (tem data fim)
+  if (range.ini && range.fim){
+    // periodo personalizado
+    tipoPeriodo.checked = true;
+    $('#mpoDataInicio').value = range.ini;
+    $('#mpoDataFim').value = range.fim;
+    divMes.style.display = 'none';
+    divPeriodo.style.display = 'flex';
+    $('#mpoMes').value = '';
+  } else if (range.ini && !range.fim){
+    // so tem inicio (ou competencia antiga simples): tenta tratar como mes?
+    // se for apenas "MM/AAAA" antigo, mostra no campo de mes
+    tipoMes.checked = true;
+    $('#mpoMes').value = range.ini;
+    divMes.style.display = 'block';
+    divPeriodo.style.display = 'none';
+    $('#mpoDataInicio').value = '';
+    $('#mpoDataFim').value = '';
+  } else {
+    tipoMes.checked = true;
+    $('#mpoMes').value = '';
+    divMes.style.display = 'block';
+    divPeriodo.style.display = 'none';
+    $('#mpoDataInicio').value = '';
+    $('#mpoDataFim').value = '';
+  }
+
+  $('#modalPO').hidden = false;
+  $('#mpoProjeto').focus();
+}
+
+function fecharModalPO(){
+  $('#modalPO').hidden = true;
+  mpoAlvo = null;
+}
+
+$('#tbodyPOs').addEventListener('dblclick', e => {
+  const tr = e.target.closest('tr[data-doc]');
+  if (!tr) return;
+  const po = estado.pos.find(p => p.doc === tr.dataset.doc && p.item === tr.dataset.item && p.contrato === tr.dataset.contrato);
+  if (po) abrirModalPO(po);
+});
+
+$('#btnMpoCancelar').addEventListener('click', fecharModalPO);
+$('#modalPO').addEventListener('click', e => { if (e.target === $('#modalPO')) fecharModalPO(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModalPO(); });
+
+// alterna visual entre mes e periodo personalizado
+$('#mpoTipoMes').addEventListener('change', () => {
+  $('#mpoMes').parentElement.style.display = $('#mpoTipoMes').checked ? 'block' : 'none';
+  $('#mpoPeriodoCampos').style.display = $('#mpoTipoPeriodo').checked ? 'flex' : 'none';
+});
+$('#mpoTipoPeriodo').addEventListener('change', () => {
+  $('#mpoMes').parentElement.style.display = $('#mpoTipoMes').checked ? 'block' : 'none';
+  $('#mpoPeriodoCampos').style.display = $('#mpoTipoPeriodo').checked ? 'flex' : 'none';
+});
+
+$('#btnMpoSalvar').addEventListener('click', async () => {
+  if (!mpoAlvo) return;
+  // O dropdown traz o CONTRATO; monta "Nome do projeto (Contrato)" para gravar.
+  const contratoSel = $('#mpoProjeto').value.trim();
+  const projSel = estado.projetos.find(p => p.contrato === contratoSel);
+  const nome = projSel ? (projSel.nome + ' (' + projSel.contrato + ')') : '';
+  const tipoMes = $('#mpoTipoMes').checked;
+  const tipoPeriodo = $('#mpoTipoPeriodo').checked;
+
+  let dataInicial = '';
+  let dataFinal = '';
+
+  if (tipoMes){
+    const mes = $('#mpoMes').value.trim();
+    if (!mes) {
+      // limpar competencia
+      dataInicial = '';
+      dataFinal = '';
+    } else if (!/^\d{2}\/\d{4}$/.test(mes)){
+      toast('Competência fora do formato MM/AAAA (ex.: 10/2026).');
+      return;
+    } else {
+      const m = mes.split('/');
+      const mm = Number(m[0]);
+      const aaaa = Number(m[1]);
+      if (mm < 1 || mm > 12 || aaaa < 1900 || aaaa > 2100){
+        toast('Competência inválida.');
+        return;
+      }
+      dataInicial = '01/' + mes;
+      dataFinal = _ultimoDia(aaaa, mm) + '/' + mes;
+    }
+  } else if (tipoPeriodo){
+    const ini = $('#mpoDataInicio').value;
+    const fim = $('#mpoDataFim').value;
+    if (!ini && !fim){
+      dataInicial = '';
+      dataFinal = '';
+    } else if (!ini || !fim){
+      toast('Preencha ambas as datas (início e fim) ou deixe ambas em branco.');
+      return;
+    } else {
+      // inputs type="date" entregam AAAA-MM-DD; converte para DD/MM/AAAA
+      const conv = s => {
+        const p = s.split('-');
+        return p[2] + '/' + p[1] + '/' + p[0];
+      };
+      dataInicial = conv(ini);
+      dataFinal = conv(fim);
+      if (dataInicial > dataFinal){
+        toast('A data de início não pode ser maior que a data de fim.');
+        return;
+      }
+    }
+  }
+
+  const btn = $('#btnMpoSalvar');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        doc: mpoAlvo.doc,
+        item: mpoAlvo.item,
+        contrato: mpoAlvo.contrato,
+        nome_servico: nome,
+        data_inicio: dataInicial,
+        data_fim: dataFinal
+      })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Falha ao atualizar');
+    if (Array.isArray(j.pos)) estado.pos = j.pos;
+    fecharModalPO();
+    renderTudo();
+    carregarInfo();
+    toast('Serviço/competência atualizados no banco.');
+  } catch(e){
+    toast('Falha ao atualizar: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ===== início ===== */
+// limpeza de estado obsoleto: o dropdown de arquivos foi removido do layout
+try { localStorage.removeItem('controlePO.arquivoSelecionado'); } catch(e){}
+carregarDoBanco();
+carregarProjetos();
+carregarInfo();
+
+</script>
+</body>
+</html>
