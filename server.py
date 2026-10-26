@@ -49,10 +49,9 @@ TABLE = "controle_po"
 # tabela de vinculo PO <-> arquivo importado (todas as colunas sao TEXT)
 TABLE_ARQUIVO = "controle_po_arquivo"
 
-# ---- mapeamento: cabecalho normalizado da planilha -> campo do banco ----
+# ---- mapeamento: CABEÇALHO NORMALIZADO da planilha -> CAMPO do banco ----
 FIELD_MAP = {
     "documento de compras": "documento_de_compras",
-    "documento de compra": "documento_de_compras",
     "item": "item",
     "contrato basico": "contrato_basico",
     "data do documento": "data_documento",
@@ -60,6 +59,69 @@ FIELD_MAP = {
     "a ser fornecido valor": "a_ser_fornecido_valor",
     "ainda a faturar valor": "ainda_a_faturar_valor",
     "codigo de eliminacao": "codigo_eliminacao",
+    "codigo de imposto": "codigo_imposto",
+    "tipo doc compras": "tipo_doc_compras",
+    "ctg doc compras": "ctg_doc_compras",
+    "fornecedor centro fornecedor": "fornecedor_centro_fornecedor",
+    "organizacao compras": "organizacao_compras",
+    "grupo compradores": "grupo_compradores",
+    "material": "material",
+    "texto breve": "texto_breve",
+    "grupo mercadorias": "grupo_mercadorias",
+    "grupo de mercadorias": "grupo_mercadorias",
+    "historico pedido docum solrem": "historico_pedido_docum_sol_rem",
+    "categoria do item": "categoria_item",
+    "categoria do item_2": "categoria_item_2",
+    "ctg classcont": "ctg_class_cont",
+    "numero acompanhamento": "numero_acompanhamento",
+    "centro": "centro",
+    "deposito": "deposito",
+    "qtd pedido": "qtd_pedido",
+    "um pedido": "um_pedido",
+    "qtd na unid gestestoq": "qtd_unid_gest_estoq",
+    "unidade manutencao estoque": "unidade_manutencao_estoque",
+    "preco liquido": "preco_liquido",
+    "moeda": "moeda",
+    "unidade preco": "unidade_preco",
+    "contrato basico": "contrato_basico",
+    "it contrato superior": "it_contrato_superior",
+    "valor fixado": "valor_fixado",
+    "valor global pendente": "valor_global_pendente",
+    "valor pendente": "valor_pendente",
+    "valor solicitado": "valor_solicitado",
+    "quantidade prevista": "quantidade_prevista",
+    "qtd prev pendente": "qtd_prev_pendente",
+    "qtd solicit anterior": "qtd_solicit_anterior",
+    "inicio per validade": "inicio_per_validade",
+    "fim da validade": "fim_validade",
+    "a ser fornecida quantidade": "a_ser_fornecida_quantidade",
+    "a ser fornecido valor": "a_ser_fornecido_valor",
+    "ainda a faturar quantidade": "ainda_a_faturar_quantidade",
+    "ainda a faturar valor": "ainda_a_faturar_valor",
+    "prz apresent cotacao": "prz_apresent_cotacao",
+    "origem": "origem",
+    "rfq coletiva": "rfq_coletiva",
+    "num itens": "num_itens",
+    "codigo de controle": "codigo_controle",
+    "reg info compras": "reg_info_compras",
+    "numero pacote": "numero_pacote",
+    "grupo liberacao": "grupo_liberacao",
+    "estrat de liberacao": "estrat_de_liberacao",
+    "estado de liberacao": "estado_liberacao",
+    "codigo de liberacao": "codigo_liberacao",
+    "dep saida do estq": "dep_saida_do_estq",
+    "nome de fornecedor": "nome_fornecedor",
+    "unid prec pedido": "unid_prec_pedido",
+    "domicilio fiscal": "domicilio_fiscal",
+    "valor liquido pedido": "valor_liquido_pedido",
+    "incompleto": "incompleto",
+    "qtd notificada": "qtd_notificada",
+    "numero da hierarquia": "numero_hierarquia",
+    "numero externo ordenacao": "numero_externo_ordenacao",
+    "ctg externa hierarquia": "ctg_externa_hierarquia",
+    "urgencia necessidade": "urgencia_necessidade",
+    "prior necessario": "prior_neces",
+    "numero de documento configurável": "numero_documento_configuravel",
 }
 
 
@@ -223,9 +285,8 @@ def _rows_from_xlsx_bytes(data):
             for hi, row in enumerate(primeiras):
                 tmp = {}
                 for idx, cell in enumerate(row):
-                    fld = FIELD_MAP.get(norm(cell))
-                    if fld and fld not in tmp:
-                        tmp[fld] = idx
+                    if cell is not None and str(cell).strip():
+                        tmp[norm(str(cell).strip())] = (idx, str(cell).strip())
                 if len(tmp) >= 5:
                     linhas = list(ws.iter_rows(min_row=hi + 2, values_only=True))
                     return hi, tmp, linhas
@@ -235,7 +296,13 @@ def _rows_from_xlsx_bytes(data):
 
 
 def _rows_from_csv_bytes(data):
-    """Retorna (header_idx, col_map, linhas) a partir de bytes de um .csv."""
+    """Retorna (header_idx, col_map, linhas) a partir de bytes de um .csv.
+
+    col_map mapeia o CABEÇALHO NORMALIZADO -> (INDICE_DA_COLUNA, CABEÇALHO_RO),
+    para TODOS os cabeçalhos do arquivo (nao so os de FIELD_MAP). O cabecalho
+    cru eh guardado pra servir de chave no colunas_extra sem depender da
+    normalizacao.
+    """
     text = data.decode("utf-8-sig", errors="replace")
     amostra = text[:8192]
     try:
@@ -246,42 +313,46 @@ def _rows_from_csv_bytes(data):
     for hi in range(min(10, len(linhas))):
         tmp = {}
         for idx, cell in enumerate(linhas[hi]):
-            fld = FIELD_MAP.get(norm(cell))
-            if fld and fld not in tmp:
-                tmp[fld] = idx
-        if len(tmp) >= 5:
+            cell_str = "" if cell is None else str(cell).strip()
+            if cell_str:
+                tmp[norm(cell_str)] = (idx, cell_str)
+        if any(k in FIELD_MAP for k in tmp):
             return hi, tmp, linhas[hi + 1:]
     return None, None, None
 
 
 def _records_from_rows(col_map, rows):
     recs = []
+    PRIMARIOS = set(FIELD_MAP)   # chaves normalizadas dos campos estruturais
+
     for row in rows:
-        def get(field):
-            idx = col_map.get(field)
+        def val(header):
+            item = col_map.get(header)
+            if item is None:
+                return None
+            idx, _ = item
             if idx is None or idx >= len(row):
                 return None
             return row[idx]
 
-        doc = get("documento_de_compras")
-        if doc is None or str(doc).strip() == "":
+        def get_str(header):
+            v = val(header)
+            return None if v is None else str(v).strip()
+
+        doc = get_str("documento de compras")
+        if doc is None or doc == "":
             continue
-        recs.append(
-            {
-                "documento_de_compras": str(doc).strip(),
-                "item": "" if get("item") is None else str(get("item")).strip(),
-                "contrato_basico": "" if get("contrato_basico") is None else str(get("contrato_basico")).strip(),
-                "data_documento": parse_date(get("data_documento")),
-                "preco_liquido": parse_num(get("preco_liquido")),
-                "a_ser_fornecido_valor": parse_num(get("a_ser_fornecido_valor")),
-                "ainda_a_faturar_valor": parse_num(get("ainda_a_faturar_valor")),
-                # codigo de eliminacao: 'L' = PO cancelada, 'S' = eliminacao
-                # parcial, '' = sem eliminacao. Vem como texto do SAP.
-                "codigo_eliminacao": "" if get("codigo_eliminacao") is None else str(get("codigo_eliminacao")).strip(),
-                "nome_do_servico": "-",
-                "competencia": "-",
-            }
-        )
+
+        rec = {}
+        for norm_key, db_col in FIELD_MAP.items():
+            rec[db_col] = get_str(norm_key)
+
+        # Campos que não vêm do arquivo, mas precisam existir no banco
+        rec.setdefault("nome_do_servico", "-")
+        rec.setdefault("competencia", "-")
+        rec.setdefault("arquivo_origem", os.path.basename(""))
+
+        recs.append(rec)
     return recs
 
 
@@ -302,39 +373,62 @@ def import_file(path):
         data = f.read()
     recs = extract_records_bytes(path, data)
     orig = os.path.basename(path)
+    for r in recs:
+        r["arquivo_origem"] = orig
     con = get_conn()
     cur = con.cursor()
     if recs:
+        cols = [
+            "documento_de_compras", "item", "contrato_basico", "data_documento",
+            "preco_liquido", "a_ser_fornecido_valor", "ainda_a_faturar_valor",
+            "codigo_eliminacao", "codigo_imposto", "tipo_doc_compras", "ctg_doc_compras",
+            "fornecedor_centro_fornecedor", "organizacao_compras", "grupo_compradores",
+            "historico_pedido_docum_sol_rem", "material", "texto_breve", "grupo_mercadorias",
+            "categoria_item", "categoria_item_2",
+            "ctg_class_cont", "numero_acompanhamento", "centro", "deposito",
+            "qtd_pedido", "um_pedido", "qtd_unid_gest_estoq",
+            "unidade_manutencao_estoque", "preco_liquido", "moeda", "unidade_preco",
+            "contrato_basico", "it_contrato_superior", "valor_fixado",
+            "valor_global_pendente", "valor_pendente", "valor_solicitado",
+            "quantidade_prevista", "qtd_prev_pendente", "qtd_solicit_anterior",
+            "inicio_per_validade", "fim_validade", "a_ser_fornecida_quantidade",
+            "a_ser_fornecido_valor", "ainda_a_faturar_quantidade",
+            "ainda_a_faturar_valor", "prz_apresent_cotacao", "origem",
+            "rfq_coletiva", "num_itens", "codigo_controle", "reg_info_compras",
+            "numero_pacote", "grupo_liberacao", "estrat_de_liberacao",
+            "estado_liberacao", "codigo_liberacao", "dep_saida_do_estq",
+            "nome_fornecedor", "unid_prec_pedido", "domicilio_fiscal",
+            "valor_liquido_pedido", "incompleto", "qtd_notificada",
+            "numero_hierarquia", "numero_externo_ordenacao",
+            "ctg_externa_hierarquia", "urgencia_necessidade", "prior_neces",
+            "numero_documento_configuravel", "nome_do_servico", "competencia",
+            "arquivo_origem"
+        ]
+        seen = set()
+        unique_cols = []
+        for c in cols:
+            if c not in seen:
+                seen.add(c)
+                unique_cols.append(c)
+        chunks = []
+        for r in recs:
+            row = tuple(r.get(c) for c in unique_cols)
+            chunks.append(row)
         insert_sql = (
             """
             INSERT INTO {s}.{t}
-                (documento_de_compras, item, contrato_basico, data_documento,
-                 preco_liquido, a_ser_fornecido_valor, ainda_a_faturar_valor,
-                 codigo_eliminacao, nome_do_servico, competencia, arquivo_origem)
+                ({columns})
             VALUES %s
             ON CONFLICT (documento_de_compras, item, contrato_basico) DO UPDATE SET
-                data_documento        = EXCLUDED.data_documento,
-                preco_liquido         = EXCLUDED.preco_liquido,
-                a_ser_fornecido_valor = EXCLUDED.a_ser_fornecido_valor,
-                ainda_a_faturar_valor = EXCLUDED.ainda_a_faturar_valor,
-                codigo_eliminacao     = EXCLUDED.codigo_eliminacao,
-                arquivo_origem        = EXCLUDED.arquivo_origem,
-                importado_em          = now()
-            """.format(s=SCHEMA, t=TABLE)
-        )
-        tuples = [
-            (
-                r["documento_de_compras"], r["item"], r["contrato_basico"], r["data_documento"],
-                r["preco_liquido"], r["a_ser_fornecido_valor"], r["ainda_a_faturar_valor"],
-                r["codigo_eliminacao"],
-                r["nome_do_servico"], r["competencia"], orig,
+                {update_cols}
+            """.format(
+                s=SCHEMA,
+                t=TABLE,
+                columns=", ".join(unique_cols),
+                update_cols=", ".join([f"{c} = EXCLUDED.{c}" for c in unique_cols])
             )
-            for r in recs
-        ]
-        psycopg2.extras.execute_values(cur, insert_sql, tuples, page_size=1000)
-        # ---- registro do vinculo PO <-> arquivo (acumulativo, nunca apaga) ----
-        # Garante que, ao reimportar um arquivo, as POs continuem vinculadas
-        # a ele, mesmo que outro arquivo as tenha tocado depois.
+        )
+        psycopg2.extras.execute_values(cur, insert_sql, chunks, page_size=1000)
         vinculo_sql = (
             """
             INSERT INTO {s}.{ta}
@@ -350,12 +444,12 @@ def import_file(path):
         if vinculos:
             psycopg2.extras.execute_values(cur, vinculo_sql, vinculos, page_size=1000)
         con.commit()
+
     cur.execute("SELECT COUNT(*) FROM {s}.{t}".format(s=SCHEMA, t=TABLE))
     total = cur.fetchone()[0]
     cur.close()
     con.close()
     return {"inserted": len(recs), "file": orig, "total": total}
-
 
 def _to_cents(v):
     if v is None:
