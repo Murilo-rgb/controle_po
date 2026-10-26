@@ -178,8 +178,6 @@ tbody tr:hover td{background:#262626}
       <select class="campo" id="selMes2026"><option value="01/2026">Janeiro 2026</option><option value="02/2026">Fevereiro 2026</option><option value="03/2026">Março 2026</option><option value="04/2026">Abril 2026</option><option value="05/2026">Maio 2026</option><option value="06/2026">Junho 2026</option><option value="07/2026">Julho 2026</option><option value="08/2026">Agosto 2026</option><option value="09/2026">Setembro 2026</option><option value="10/2026">Outubro 2026</option><option value="11/2026">Novembro 2026</option><option value="12/2026">Dezembro 2026</option></select>
       <label class="check"><input type="checkbox" id="chkSaldo"> só com saldo a faturar</label>
       <span class="spacer"></span>
-      <input type="file" id="fileInput" accept=".csv,.xlsx" style="display:none">
-      <button class="btn btn-ghost" id="btnExportar" type="button">Exportar CSV</button>
       <button class="btn btn-green" id="btnSAP" type="button">Importar dados do SAP</button>
     </div>
 
@@ -311,9 +309,26 @@ tbody tr:hover td{background:#262626}
     </div>
   </div>
 </div>
+</div>
+<!-- modal: importar planilha do SAP -->
+<div class="overlay" id="modalImport" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="miTitulo">
+    <h3 id="miTitulo">Importar dados do SAP</h3>
+    <p class="mpo-sub">Selecione a planilha exportada do SAP (.csv ou .xlsx). Ela será salva no servidor e depois importada para o banco de dados.</p>
+    <label class="mpo-label" for="miArquivo">Arquivo</label>
+    <input class="campo" type="file" id="miArquivo" accept=".csv,.xlsx">
+    <p id="miNomeArquivo" class="mpo-dica" style="margin-top:8px">Nenhum arquivo selecionado.</p>
+    <div class="mpo-acoes">
+      <button class="btn btn-ghost" id="btnMiCancelar" type="button">Cancelar</button>
+      <button class="btn btn-green" id="btnMiImportar" type="button">Importar</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <script>
 "use strict";
+
+const BASE_URL = '/controle_po';
 
 let MES_VIGENTE = {ano: 2026, mes: 10}; // valor padrao; atualizado pelo servidor via /api/info
 let arquivoAtual = null; // nome do arquivo mais recente (origem) a ser exibido na tabela e dashboard
@@ -332,7 +347,7 @@ function escapeHtml(texto){
 
 async function carregarProjetos(){
   try {
-    const r = await fetch("/api/projetos");
+    const r = await fetch(BASE_URL + "/api/projetos");
     const j = await r.json();
     if (j && j.ok) {
       estado.projetos = (j.projetos || []).map(p => ({
@@ -357,15 +372,15 @@ async function carregarDoBanco(){
   try {
     // Descobre o arquivo mais recente importado (ordenado por data de importacao desc)
     arquivoAtual = null;
-    const rArq = await fetch("/api/arquivos");
+    const rArq = await fetch(BASE_URL + "/api/arquivos");
     const jArq = await rArq.json();
     if (jArq.ok && jArq.arquivos && jArq.arquivos.length > 0) {
       arquivoAtual = jArq.arquivos[0].arquivo; // mais recente primeiro
     }
 
     const url = arquivoAtual
-      ? "/api/pos?origem=" + encodeURIComponent(arquivoAtual)
-      : "/api/pos";
+      ? BASE_URL + "/api/pos?origem=" + encodeURIComponent(arquivoAtual)
+      : BASE_URL + "/api/pos";
 
     const r = await fetch(url);
     const j = await r.json();
@@ -380,37 +395,13 @@ async function carregarDoBanco(){
   }
 }
 
-function exportarCSV(){
-  // Abre o seletor de arquivos (obrigatorio escolher um .csv ou .xlsx)
-  $("#fileInput").value = "";
-  $("#fileInput").click();
-}
-
 async function importarDoSAP(){
-  // Importa automaticamente o .xlsx mais recente da pasta (modo automatico do servidor)
-  setStatus("Importando automaticamente o .xlsx mais recente...", "idle");
-  const btn = $("#btnSAP");
-  const rotuloAntigo = btn.textContent;
-  btn.disabled = true; btn.textContent = "Importando...";
-  try {
-    const resp = await fetch("/api/import", { method: "POST" });
-    const j = await resp.json();
-    if (!j.ok) throw new Error(j.error || "Falha ao importar");
-    estado.pos = j.pos || [];
-    toast(`Importado ${j.inserted} PO(s) de "${j.file}".`);
-    setStatus(`Importado ${j.inserted} PO(s) de "${j.file}" em ${new Date().toLocaleTimeString()}.`, "ok");
-    carregarDoBanco(); // recarrega filtrado pelo arquivo recem importado
-    carregarInfo();
-  } catch(e){
-    toast("Falha ao importar: " + e.message);
-    setStatus("Falha ao importar: " + e.message, "err");
-  } finally {
-    btn.disabled = false; btn.textContent = rotuloAntigo;
-  }
+  // Abre o modal para o usuario selecionar a planilha do SAP (.csv/.xlsx)
+  abrirModalImport();
 }
 
 function enviarArquivo(file){
-  const btn = $("#btnExportar");
+  const btn = $("#btnMiImportar");
   const rotuloAntigo = btn.textContent;
   btn.disabled = true; btn.textContent = "Importando...";
   setStatus(`Lendo "${file.name}" e enviando ao servidor...`, "idle");
@@ -418,7 +409,7 @@ function enviarArquivo(file){
   reader.onload = async () => {
     try {
       const base64 = String(reader.result).split(",")[1] || "";
-      const r = await fetch("/api/import", {
+      const r = await fetch(BASE_URL + "/api/import", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({filename: file.name, data_base64: base64})
@@ -675,7 +666,7 @@ function setStatus(msg, tipo){
 async function carregarInfo(){
   const el = $('#connInfo');
   try {
-    const r = await fetch('/api/info');
+    const r = await fetch(BASE_URL + '/api/info');
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'falha');
     const dest = `${j.host}:${j.port}/${j.database}  |  ${j.schema}.${j.table}  |  ${j.count} linha(s)`;
@@ -719,11 +710,6 @@ document.querySelectorAll('.tab').forEach(btn => {
   $('#chkSaldo').addEventListener(ev, renderPOs);
 });
 
-$('#fileInput').addEventListener('change', e => {
-  const file = e.target.files && e.target.files[0];
-  if (file) enviarArquivo(file);
-});
-$('#btnExportar').addEventListener('click', exportarCSV);
 $('#btnSAP').addEventListener('click', importarDoSAP);
 $('#btnVerificar').addEventListener('click', () => { carregarInfo(); toast('Verificando conexão...'); });
 
@@ -743,7 +729,7 @@ $('#btnAddProj').addEventListener('click', async () => {
   if (!nome || !contrato){ toast('Preencha o nome do projeto e o contrato básico SAP.'); return; }
   if (estado.projetos.some(p => p.contrato === contrato)){ toast('Já existe um projeto com esse contrato.'); return; }
   try {
-    const r = await fetch('/api/projetos', {
+    const r = await fetch(BASE_URL + '/api/projetos', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({nome: nome, contrato: contrato})
@@ -766,7 +752,7 @@ $('#tbodyProjetos').addEventListener('click', async e => {
   const contrato = alvo.dataset.remover;
   const nome = alvo.dataset.nome || '';
   try {
-    const r = await fetch('/api/projetos', {
+    const r = await fetch(BASE_URL + '/api/projetos', {
       method: 'DELETE',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({nome: nome, contrato: contrato})
@@ -787,7 +773,7 @@ $('#inpRisco').addEventListener('input', e => {
 
 $('#btnLimpar').addEventListener('click', async () => {
   try {
-    await fetch('/api/clear', {method:'POST'});
+    await fetch(BASE_URL + '/api/clear', {method:'POST'});
     estado.pos = [];
     estado.projetos = [];
     $('#inpRisco').value = '';
@@ -966,7 +952,7 @@ $('#btnMpoSalvar').addEventListener('click', async () => {
   const btn = $('#btnMpoSalvar');
   btn.disabled = true;
   try {
-    const r = await fetch('/api/update', {
+    const r = await fetch(BASE_URL + '/api/update', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -991,6 +977,41 @@ $('#btnMpoSalvar').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+/* ===== modal de importacao do SAP ===== */
+let miArquivoSelecionado = null;
+
+function abrirModalImport(){
+  miArquivoSelecionado = null;
+  $('#miArquivo').value = '';
+  $('#miNomeArquivo').textContent = 'Nenhum arquivo selecionado.';
+  $('#modalImport').hidden = false;
+}
+
+function fecharModalImport(){
+  $('#modalImport').hidden = true;
+  miArquivoSelecionado = null;
+  $('#miArquivo').value = '';
+  $('#miNomeArquivo').textContent = 'Nenhum arquivo selecionado.';
+}
+
+$('#miArquivo').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  miArquivoSelecionado = file || null;
+  $('#miNomeArquivo').textContent = file ? file.name : 'Nenhum arquivo selecionado.';
+});
+
+$('#btnMiCancelar').addEventListener('click', fecharModalImport);
+$('#btnMiImportar').addEventListener('click', () => {
+  if (!miArquivoSelecionado){
+    toast('Selecione um arquivo .csv ou .xlsx antes de importar.');
+    return;
+  }
+  fecharModalImport();
+  enviarArquivo(miArquivoSelecionado);
+});
+$('#modalImport').addEventListener('click', e => { if (e.target === $('#modalImport')) fecharModalImport(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modalImport').hidden) fecharModalImport(); });
 
 /* ===== início ===== */
 // limpeza de estado obsoleto: o dropdown de arquivos foi removido do layout
