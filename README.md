@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Controle de PO's
 
 Painel web que lê as planilhas exportadas do SAP e guarda tudo no PostgreSQL
@@ -140,3 +141,6 @@ Latin-1/CP1252 — então variações de encoding entre arquivos funcionam igual
 Já vêm instalados neste ambiente: `psycopg2`, `openpyxl` (via Python).
 Nada precisa ser instalado.
 
+=======
+# controle_po
+>>>>>>> 7acc5ae747616ce626a21a02c0cb28612b46f3f2
